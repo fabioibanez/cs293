@@ -494,3 +494,4 @@ seven
 eight
 nine
 ten
+student
