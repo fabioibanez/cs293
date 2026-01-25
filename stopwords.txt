@@ -495,3 +495,7 @@ eight
 nine
 ten
 student
+students
+working
+teacher
+inches
