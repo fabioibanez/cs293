@@ -11,3 +11,5 @@ data
 ├── student_reasoning.csv
 └── transcript_metadata.csv
 ```
+
+[Edu-Convokit annotations](https://drive.google.com/drive/folders/1dw6sUdXGnXsGCU5HUjJQKhjUrcBQF_wk?usp=drive_link)
