@@ -48,29 +48,159 @@ DEFAULT_MODEL = "llama3.2"
 
 SYSTEM_PROMPT = """\
 You are annotating student utterances from math classroom transcripts.
-For each utterance, you must label it with exactly three binary values (0 or 1) for:
 
-1. OFFERING MATH HELP: The student is offering mathematical help to someone else:
-   - Student A offering a new solution or reason to student B
-   - Student A helping out student B (even if the teacher prompted them)
+Your task is to label the focal student utterance using EXACTLY THREE binary values (0 or 1), in this order:
 
-2. SUCCESSFUL UPTAKE: The student is responding to a classmate's existing idea:
-   - Student A responding to Student B's plan/solution/idea
-   - Agreeing or disagreeing with a classmate's solution
-   - Interacting with or building on what another student said
+1. OFFERING MATH HELP
+2. SUCCESSFUL UPTAKE
+3. ASKING FOR MORE INFORMATION
 
-3. ASKING FOR MORE INFORMATION: The student is asking a question. This includes:
-   - Questions about classroom procedures or management
-   - Questions directed to the teacher OR another student
-   - Any request for clarification or additional information
-   - There must explicitly be a question asked by the student.
+Each value must be either 0 or 1. Multiple labels may be 1 at the same time.
 
-Consider the pre-utterance and post-utterance context to understand the \
-significance of the focal utterance.
-Multiple labels can be 1 for a single utterance (e.g., 1,1,0).
-Respond with ONLY three digits separated by commas, in this exact order: \
-Offering math help, Successful uptake, Asking for More Information.
-Example: 1,0,0 or 0,1,1 or 0,0,1"""
+--------------------------------
+LABEL DEFINITIONS
+--------------------------------
+
+1. OFFERING MATH HELP (1 or 0)
+
+Label 1 if the student is offering mathematical assistance or contributing a solution step intended to help another student understand or proceed.
+
+This includes:
+- Offering a solution step or explanation
+- Suggesting what to do next in a solution
+- Explaining reasoning to help another student
+- Offering to help or walk someone through the problem
+- Helping even if prompted by the teacher
+
+This does NOT include:
+- Merely stating an answer without helping context
+- Responding only to the teacher without helping peers
+- Asking questions
+
+Key idea: The student is helping someone move forward mathematically.
+
+
+2. SUCCESSFUL UPTAKE (1 or 0)
+
+Label 1 if the student directly engages with or responds to another student's prior idea, solution, or reasoning.
+
+This includes:
+- Agreeing or disagreeing with a classmate's idea
+- Building on or modifying another student's solution
+- Referencing or reacting to what another student just said
+- Continuing a peer's reasoning or plan
+
+This does NOT include:
+- Starting a completely new idea unrelated to peers
+- Only responding to the teacher
+- Asking unrelated questions
+- Simply stating an answer without helping context
+
+Key idea: The student is interacting with or building on another student's contribution.
+
+
+3. ASKING FOR MORE INFORMATION (1 or 0)
+
+Label 1 if the focal utterance explicitly asks a question.
+
+This includes:
+- Questions about math content
+- Questions about procedures or instructions
+- Questions directed to teacher or peers
+- Requests for clarification or explanation
+
+This does NOT include:
+- Statements that imply confusion without a question
+
+Key idea: A question must be explicitly asked.
+
+
+--------------------------------
+EXAMPLE (OFFERING HELP)
+--------------------------------
+
+PRE-UTTERANCE CONTEXT:
+[teacher] Okay, everyone should be solving for x after distributing the 3. What did you get so far?
+[student] I got 3x plus 6 equals 18, but I don't know what to do after.
+[teacher] Good, that's correct so far. What should we do after that?
+[student] I'm not sure.
+
+FOCAL STUDENT UTTERANCE:
+[student] I think we can subtract 6 from each side.
+
+POST-UTTERANCE CONTEXT:
+[teacher] Go ahead and explain your thinking so everyone can follow.
+[student] Subtract 6 from both sides to get 3x equals 12.
+[teacher] And what happens after that?
+[student] Then you divide both sides by 3, so x equals 4.
+[multiple students] Ohhh, okay.
+
+The focal student offers a solution step to help classmates proceed → label: 1,0,0.
+
+--------------------------------
+EXAMPLE (SUCCESSFUL UPTAKE)
+--------------------------------
+
+PRE-UTTERANCE CONTEXT:
+[multiple students] [Crosstalk]
+[teacher] Okay – someone tell me how they got started.
+[student] I divided both sides by 5 cause I wanted to get x by itself.
+[teacher] Okay, student A divided both sides by 5. Did anyone else try that?
+[student] I think there's still a number being added, so dividing first might not work.
+
+FOCAL STUDENT UTTERANCE:
+[student] No you have to subtract 3 first before you divide by 5.
+
+POST-UTTERANCE CONTEXT:
+[teacher] So subtraction comes before division here?
+[student] Yes, because we want x alone before dividing.
+[teacher] Does that make sense to everyone?
+[multiple students] Yeah.
+
+The focal student builds directly on a classmate's idea and continues the reasoning → label: 0,1,0.
+
+--------------------------------
+EXAMPLE (ASKING FOR MORE INFORMATION)
+--------------------------------
+
+[teacher] Remember to combine like terms before solving the equation.
+[student] I combined these two but I'm not sure what happens next.
+[teacher] Think about what operations are left after combining terms.
+[student] Umm I'm not sure.
+
+FOCAL STUDENT UTTERANCE:
+[student] Do we subtract 8 from both sides now?
+
+POST-UTTERANCE CONTEXT:
+[teacher] Exactly, Student J. We can subtract 8 from both sides at this point.
+[student] And then we divide after that?
+[teacher] Good, keep going.
+[student] I got that too.
+
+The focal student explicitly asks a question to clarify the next mathematical step → label: 0,0,1.
+
+
+--------------------------------
+ANNOTATION RULES
+--------------------------------
+
+• Use pre- and post-context to interpret the focal utterance.
+• Focus on the communicative function of the utterance.
+• Multiple labels can be 1 simultaneously.
+• Do not output explanations.
+
+--------------------------------
+OUTPUT FORMAT
+--------------------------------
+
+Respond ONLY with three digits separated by commas:
+
+Offering math help, Successful uptake, Asking for more information
+
+Examples:
+1,0,0
+0,1,1
+0,0,1"""
 
 USER_PROMPT_TEMPLATE = """\
 PRE-UTTERANCE CONTEXT:
@@ -90,10 +220,10 @@ separated by commas: Offering math help, Successful uptake, Asking for More Info
 # ---------------------------------------------------------------------------
 
 PROVIDER_PREFIXES = {
-    "gpt":    "openai",
-    "o1":     "openai",
-    "o3":     "openai",
-    "o4":     "openai",
+    "gpt": "openai",
+    "o1": "openai",
+    "o3": "openai",
+    "o4": "openai",
     "claude": "anthropic",
     "gemini": "google",
 }
@@ -110,6 +240,7 @@ def detect_provider(model: str) -> str:
 # ---------------------------------------------------------------------------
 # Provider-specific clients
 # ---------------------------------------------------------------------------
+
 
 def _query_openai(model: str, system: str, user: str) -> str:
     """Query OpenAI using the official client."""
@@ -170,10 +301,10 @@ def _query_ollama(model: str, system: str, user: str) -> str:
 # ---------------------------------------------------------------------------
 
 _PROVIDER_DISPATCH = {
-    "openai":    _query_openai,
+    "openai": _query_openai,
     "anthropic": _query_anthropic,
-    "google":    _query_google,
-    "ollama":    _query_ollama,
+    "google": _query_google,
+    "ollama": _query_ollama,
 }
 
 
@@ -190,6 +321,7 @@ def query_model(model: str, system_prompt: str, user_prompt: str) -> str:
 # ---------------------------------------------------------------------------
 # Annotation logic
 # ---------------------------------------------------------------------------
+
 
 def build_user_prompt(pre_context: str, utterance: str, post_context: str) -> str:
     """Build the user prompt from the three context segments."""
@@ -215,24 +347,33 @@ def parse_annotation(response: str) -> tuple[int, int, int]:
 # Main
 # ---------------------------------------------------------------------------
 
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Annotate classroom utterances using any LLM provider."
     )
     parser.add_argument(
-        "--model", type=str, default=DEFAULT_MODEL,
+        "--model",
+        type=str,
+        default=DEFAULT_MODEL,
         help=f"Model name — provider is auto-detected (default: {DEFAULT_MODEL})",
     )
     parser.add_argument(
-        "--limit", type=int, default=None,
+        "--limit",
+        type=int,
+        default=None,
         help="Process only the first N rows (for testing)",
     )
     parser.add_argument(
-        "--input", type=str, default=INPUT_CSV,
+        "--input",
+        type=str,
+        default=INPUT_CSV,
         help=f"Input CSV path (default: {INPUT_CSV})",
     )
     parser.add_argument(
-        "--output", type=str, default=None,
+        "--output",
+        type=str,
+        default=None,
         help="Output CSV path (default: annotations_{model}.csv)",
     )
     args = parser.parse_args()
@@ -289,14 +430,16 @@ def main() -> None:
                 print(f"  ERROR: {e}")
                 offering, uptake, asking = 0, 0, 0
 
-            writer.writerow({
-                "Pre-Utterance Context": pre,
-                "Student Utterance": utterance,
-                "Post-Utterance Context": post,
-                "Offering math help": offering,
-                "Successful uptake": uptake,
-                "Asking for More Information": asking,
-            })
+            writer.writerow(
+                {
+                    "Pre-Utterance Context": pre,
+                    "Student Utterance": utterance,
+                    "Post-Utterance Context": post,
+                    "Offering math help": offering,
+                    "Successful uptake": uptake,
+                    "Asking for More Information": asking,
+                }
+            )
             out_f.flush()
 
             if i < len(rows) - 1:
