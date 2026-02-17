@@ -1,12 +1,10 @@
 """
-Annotates student utterances from math classroom transcripts using any LLM provider.
+Annotates student utterances from math classroom transcripts.
 Reads from annotated_single_utterances_new.csv, writes to annotations_{model}.csv.
 
-Supported providers (auto-detected from model name):
-  - OpenAI:    gpt-4o, gpt-4o-mini, o1, o3-mini, ...
-  - Anthropic: claude-3-5-sonnet-20241022, claude-3-haiku-20240307, ...
-  - Google:    gemini-1.5-pro, gemini-1.5-flash, gemini-2.0-flash, ...
-  - Ollama:    llama3.2, mistral, phi3, ... (any model not matching above)
+Supported models:
+  - gpt-5-mini    (OpenAI, requires OPENAI_API_KEY)
+  - qwen3:8b      (Ollama, requires local ollama serve)
 
 - Offering math help: Student A offering a new solution/reason to student B.
   Student A helping out student B, even if prompted by the teacher, still counts.
@@ -15,11 +13,9 @@ Supported providers (auto-detected from model name):
   Agreeing/disagreeing with a classmate's solution (basically interacting with it in some way).
 
 Usage:
-  python model.py --model gpt-4o                          # OpenAI
-  python model.py --model claude-3-5-sonnet-20241022      # Anthropic
-  python model.py --model gemini-1.5-flash                # Google
-  python model.py --model llama3.2                        # Ollama (local)
-  python model.py --model gpt-4o --limit 5                # Test with 5 rows
+  python model.py --model gpt-5-mini              # OpenAI
+  python model.py --model qwen3:8b                # Ollama (local)
+  python model.py --model gpt-5-mini --limit 5    # Test with 5 rows
 
 Environment variables (set the ones you need):
   OPENAI_API_KEY      — for OpenAI models
@@ -27,7 +23,7 @@ Environment variables (set the ones you need):
   GOOGLE_API_KEY      — for Gemini models
 
 Requirements:
-  pip install openai anthropic google-genai
+  pip install openai anthropic google-genai python-dotenv
 """
 
 import argparse
@@ -36,7 +32,10 @@ import os
 import re
 import time
 
-import anthropic
+from dotenv import load_dotenv
+
+load_dotenv()  # Load OPENAI_API_KEY, etc. from .env so you don't have to export manually
+
 import openai
 from google import genai
 
@@ -117,7 +116,6 @@ def _query_openai(model: str, system: str, user: str) -> str:
     client = openai.OpenAI()
     response = client.chat.completions.create(
         model=model,
-        temperature=0,
         messages=[
             {"role": "system", "content": system},
             {"role": "user", "content": user},
